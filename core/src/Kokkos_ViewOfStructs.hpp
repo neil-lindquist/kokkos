@@ -2,6 +2,8 @@
 #ifndef KOKKOS_VIEWOFSTRUCTS_HPP
 #define KOKKOS_VIEWOFSTRUCTS_HPP
 
+#include <type_traits>
+
 namespace Kokkos {
 
 /*
@@ -12,10 +14,10 @@ struct Struct {
 
   // The type of the indexed field
   template<size_t field_index>
-  using field_type = std::condition<field_index == 0,
-                                    FirstType,
-                                    typename Struct<RestTypes...>::filed_type<field_index-1>
-                                   >::type;
+  using field_type = std::conditional<field_index == 0,
+                                      FirstType,
+                                      typename Struct<RestTypes...>::filed_type<field_index-1>
+                                     >::type;
 
   // The type of the index field as an lvalue reference
   template<size_t field_index>
