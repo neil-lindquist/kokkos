@@ -12,6 +12,8 @@ namespace Kokkos {
 template<class FirstType, class... RestTypes>
 struct Struct {
 
+  static constexpr size_t number_fields = 1 + Struct<RestTypes...>::number_fields;
+
   // The type of the indexed field
   template<size_t field_index>
   using field_type = typename std::conditional<
@@ -25,12 +27,38 @@ struct Struct {
   using field_reference_type = typename std::add_lvalue_reference<field_type<field_index>>::type;
 };
 
+// Base case for structs
+template<class LastType>
+struct Struct<LastType> {
+
+  static constexpr size_t number_fields = 1;
+  
+  template<size_t field_index>
+  using field_type = typename std::enable_if<field_index == 0, LastType>::type;
+
+  template<size_t field_index>
+  using field_reference_type = typename std::add_lvalue_reference<field_type<field_index>>::type;
+};
+
 /*
  * A wrapper type to pass around integers for field indices at compile time
  */
 template<size_t index>
 struct Field {
 };
+
+namespace Impl {
+
+template<class StructType, size_t field_index = 0>
+struct StructAlignedLength {
+  static constexpr size_t value = alignof(typename StructType::template field_type<field_index>)
+                                  + field_index + 1 < StructType::number_fields
+                                    ? StructAlignedLength<StructType, field_index+1>::value
+                                    : 0;
+};
+
+
+} // namespace Impl
 
 
 template <class DataType, class... Properties>
