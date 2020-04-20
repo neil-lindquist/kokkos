@@ -14,14 +14,15 @@ struct Struct {
 
   // The type of the indexed field
   template<size_t field_index>
-  using field_type = std::conditional<field_index == 0,
-                                      FirstType,
-                                      typename Struct<RestTypes...>::filed_type<field_index-1>
-                                     >::type;
+  using field_type = typename std::conditional<
+                                field_index == 0,
+                                FirstType,
+                                typename Struct<RestTypes...>::template filed_type<field_index-1>
+                              >::type;
 
   // The type of the index field as an lvalue reference
   template<size_t field_index>
-  using field_reference_type = std::add_lvalue_reference<field_type<field_index>>::type
+  using field_reference_type = typename std::add_lvalue_reference<field_type<field_index>>::type;
 };
 
 /*
@@ -47,7 +48,7 @@ public:
     // TODO implement
   }
 
-}
+};
 
 } // namespace Kokkos
 
