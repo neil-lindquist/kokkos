@@ -6,11 +6,21 @@
 
 namespace Kokkos {
 
+
+
+/*
+ * A wrapper type to pass around integers for field indices at compile time
+ */
+template<size_t index>
+struct Field {
+};
+
+
 /*
  * A wrapper type to represent a struct being stored
  */
 template<class FirstType, class... RestTypes>
-struct Struct {
+struct Struct : Struct<RestTypes...> {
 
   static constexpr size_t number_fields = 1 + Struct<RestTypes...>::number_fields;
 
@@ -25,6 +35,29 @@ struct Struct {
   // The type of the index field as an lvalue reference
   template<size_t field_index>
   using field_reference_type = typename std::add_lvalue_reference<field_type<field_index>>::type;
+
+
+  FirstType field_content;
+
+  
+  Struct()
+    : field_content(), Struct<RestTypes...>() {
+  }
+
+  Struct(FirstType arg, RestTypes... rest)
+    : field_content(arg), Struct<RestTypes...>(rest...) {
+  }
+
+  
+  template<size_t field_index>
+  field_reference_type<field_index> operator()(Field<field_index>) {
+    if (field_index == 0) {
+      return field_content;
+    } else {
+      return Struct<RestTypes...>::operator()(Field<field_index-1>());
+    }
+  }
+  
 };
 
 // Base case for structs
@@ -38,25 +71,107 @@ struct Struct<LastType> {
 
   template<size_t field_index>
   using field_reference_type = typename std::add_lvalue_reference<field_type<field_index>>::type;
+
+
+  LastType field_content;
+
+  Struct()
+    : field_content() {
+  }
+
+  Struct(LastType arg)
+    : field_content(arg) {
+  }
+
+  template<size_t field_index>
+  field_reference_type<field_index> operator()(Field<field_index>) {
+    static_assert(field_index == 0, "Invalid field access");
+
+    return field_content;
+  }
+
 };
 
-/*
- * A wrapper type to pass around integers for field indices at compile time
- */
-template<size_t index>
-struct Field {
-};
 
 namespace Impl {
 
-template<class StructType, size_t field_index = 0>
-struct StructAlignedLength {
-  static constexpr size_t value = alignof(typename StructType::template field_type<field_index>)
-                                  + field_index + 1 < StructType::number_fields
-                                    ? StructAlignedLength<StructType, field_index+1>::value
-                                    : 0;
+template<class ViewTraits, class = typename ViewTraits::array_layout>
+class ViewOfStructsStorage {
+  static_assert(std::is_same<typename ViewTraits::array_layout, LayoutRight>::value
+                || std::is_same<typename ViewTraits::array_layout, LayoutLeft>::value,
+                "Unsupported Layout");
 };
 
+// internal storage for View of Structs layout
+template<class ViewTraits>
+class ViewOfStructsStorage<ViewTraits, LayoutRight> {
+
+  using storage_type = View<typename ViewTraits::value_type,
+                            typename ViewTraits::array_layout,
+                            typename ViewTraits::memory_space,
+                            typename ViewTraits::memory_traits>;
+          
+  storage_type storage;
+
+public:
+
+  template <typename I0, size_t field_index>
+  KOKKOS_FORCEINLINE_FUNCTION
+      typename ViewTraits::value_type::template field_reference_type<field_index>
+      operator()(const I0& i0, const Field<field_index>& field) const {
+    return storage(i0)(field);
+  }
+};
+ 
+
+// internal storage for Struct of Views layout
+template<class ViewTraits>
+class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
+
+
+  // internal type to hold the View for each field
+  template<class StructType, size_t field_index = 0, class Enable = void>
+  struct Storage : Storage<StructType, field_index+1> {
+    View<typename StructType::template field_type<field_index>> field_storage;
+
+    template <typename I0, size_t accessed_field_index>
+    KOKKOS_FORCEINLINE_FUNCTION
+        typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
+        operator()(const I0& i0, const Field<accessed_field_index>& field) const {
+      if (field_index == accessed_field_index) {
+        return field_storage(i0);
+      } else {
+        Storage<StructType, field_index+1>::operator()(i0, field);
+      }
+    }
+  };
+  template<class StructType, size_t field_index>
+  struct Storage<StructType,
+                 field_index,
+                 typename std::enable_if<field_index == StructType::number_fields>::type> {
+
+
+    template <typename I0, size_t accessed_field_index>
+    KOKKOS_FORCEINLINE_FUNCTION
+        typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
+        operator()(const I0& i0, const Field<accessed_field_index>) const {
+      assert("Invalid field index");
+    }
+  };
+
+  Storage<typename ViewTraits::value_type> storage;
+
+public:
+
+
+  template <typename I0, size_t field_index>
+  KOKKOS_FORCEINLINE_FUNCTION
+      typename ViewTraits::value_type::template field_reference_type<field_index>
+      operator()(const I0& i0, const Field<field_index>& field) const {
+    return storage(i0, field);
+  }
+
+};
 
 } // namespace Impl
 
@@ -64,16 +179,20 @@ struct StructAlignedLength {
 template <class DataType, class... Properties>
 class ViewOfStructs {
 
-  // TODO typedef the type w/out pointers or array lengths as StructType
+  using view_traits = ViewTraits<DataType, Properties...>;
+
+  using struct_type = typename view_traits::value_type;
+
+  Impl::ViewOfStructsStorage<view_traits> storage;
 
 public:
 
   // Rank 1 accessor
   template <typename I0, size_t field_index>
       // TODO add inline/enable_if code
-      typename StructType::field_reference_type<field_index>
-      operator()(const I0& i0, const Field<field_index>) const {
-    // TODO implement
+      typename struct_type::template field_reference_type<field_index>
+      operator()(const I0& i0, const Field<field_index>& field) const {
+    return storage(i0, field);
   }
 
 };
