@@ -178,7 +178,7 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
       if (field_index == accessed_field_index) {
         return field_storage(i0);
       } else {
-        Storage<StructType, field_index+1>::operator()(i0, field);
+        return Storage<StructType, field_index+1>::operator()(i0, field);
       }
     }
   };
