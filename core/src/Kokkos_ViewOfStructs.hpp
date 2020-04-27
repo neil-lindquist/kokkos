@@ -29,7 +29,7 @@ struct Struct : Struct<RestTypes...> {
   using field_type = typename std::conditional<
                                 field_index == 0,
                                 FirstType,
-                                typename Struct<RestTypes...>::template filed_type<field_index-1>
+                                typename Struct<RestTypes...>::template field_type<field_index-1>
                               >::type;
 
   // The type of the index field as an lvalue reference
@@ -51,11 +51,11 @@ struct Struct : Struct<RestTypes...> {
   
   template<size_t field_index>
   field_reference_type<field_index> operator()(Field<field_index>) {
-    if (field_index == 0) {
-      return field_content;
-    } else {
-      return Struct<RestTypes...>::operator()(Field<field_index-1>());
-    }
+    return Struct<RestTypes...>::operator()(Field<field_index-1>());
+  }
+
+  field_reference_type<0> operator()(Field<0>) {
+    return field_content;
   }
   
 };
@@ -67,7 +67,7 @@ struct Struct<LastType> {
   static constexpr size_t number_fields = 1;
   
   template<size_t field_index>
-  using field_type = typename std::enable_if<field_index == 0, LastType>::type;
+  using field_type = typename std::conditional<field_index == 0, LastType, void>::type;
 
   template<size_t field_index>
   using field_reference_type = typename std::add_lvalue_reference<field_type<field_index>>::type;
@@ -106,7 +106,7 @@ class ViewOfStructsStorage {
 template<class ViewTraits>
 class ViewOfStructsStorage<ViewTraits, LayoutRight> {
 
-  using storage_type = View<typename ViewTraits::value_type,
+  using storage_type = View<typename ViewTraits::data_type,
                             typename ViewTraits::array_layout,
                             typename ViewTraits::memory_space,
                             typename ViewTraits::memory_traits>;
