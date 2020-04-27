@@ -95,6 +95,26 @@ struct Struct<LastType> {
 
 namespace Impl {
 
+template<class Old, class New>
+struct copy_array_qualifiers {
+  typedef New type;
+};
+
+template<class Old, class New>
+struct copy_array_qualifiers<Old*, New> {
+  typedef typename std::add_pointer<typename copy_array_qualifiers<Old, New>::type>::type
+          type;
+};
+
+template<class Old, class New, size_t N>
+struct copy_array_qualifiers<Old[N], New> {
+  typedef typename copy_array_qualifiers<Old, New>::type
+          arrayless_type;
+  typedef arrayless_type
+          type[N];
+};
+
+
 template<class ViewTraits, class = typename ViewTraits::array_layout>
 class ViewOfStructsStorage {
   static_assert(std::is_same<typename ViewTraits::array_layout, LayoutRight>::value
@@ -137,7 +157,13 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
   // internal type to hold the View for each field
   template<class StructType, size_t field_index = 0, class Enable = void>
   struct Storage : Storage<StructType, field_index+1> {
-    View<typename StructType::template field_type<field_index>> field_storage;
+
+    typedef typename StructType::template field_type<field_index>
+            field_type;
+    typedef typename copy_array_qualifiers<typename ViewTraits::data_type, field_type>::type
+            qualified_field_type;
+
+    View<qualified_field_type> field_storage;
 
     template<class... Args>
     Storage(Args&&... args)
