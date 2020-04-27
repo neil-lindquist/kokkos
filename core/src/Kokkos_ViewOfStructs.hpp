@@ -115,6 +115,11 @@ class ViewOfStructsStorage<ViewTraits, LayoutRight> {
 
 public:
 
+  template<class... Args>
+  ViewOfStructsStorage<ViewTraits, LayoutRight>(Args&&... args)
+    : storage(args...) {
+  }
+
   template <typename I0, size_t field_index>
   KOKKOS_FORCEINLINE_FUNCTION
       typename ViewTraits::value_type::template field_reference_type<field_index>
@@ -134,6 +139,12 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
   struct Storage : Storage<StructType, field_index+1> {
     View<typename StructType::template field_type<field_index>> field_storage;
 
+    template<class... Args>
+    Storage(Args&&... args)
+      : field_storage(args...),
+        Storage<StructType, field_index+1>(args...) {
+    }
+
     template <typename I0, size_t accessed_field_index>
     KOKKOS_FORCEINLINE_FUNCTION
         typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
@@ -150,6 +161,9 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
                  field_index,
                  typename std::enable_if<field_index == StructType::number_fields>::type> {
 
+    template<class... Args>
+    Storage(Args&&... args) {
+    }
 
     template <typename I0, size_t accessed_field_index>
     KOKKOS_FORCEINLINE_FUNCTION
@@ -163,6 +177,9 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
 
 public:
 
+  template<class... Args>
+  ViewOfStructsStorage(Args&&... args) : storage(args...) {
+  }
 
   template <typename I0, size_t field_index>
   KOKKOS_FORCEINLINE_FUNCTION
@@ -186,6 +203,10 @@ class ViewOfStructs {
   Impl::ViewOfStructsStorage<view_traits> storage;
 
 public:
+
+  template<class... Args>
+  ViewOfStructs(Args&&... args) : storage(args...) {
+  }
 
   // Rank 1 accessor
   template <typename I0, size_t field_index>
