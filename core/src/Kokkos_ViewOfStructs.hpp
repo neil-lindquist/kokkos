@@ -174,14 +174,22 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
     template <typename I0, size_t accessed_field_index>
     KOKKOS_FORCEINLINE_FUNCTION
         typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
-        operator()(const I0& i0, const Field<accessed_field_index>& field) const {
-      if (field_index == accessed_field_index) {
-        return field_storage(i0);
-      } else {
-        return Storage<StructType, field_index+1>::operator()(i0, field);
-      }
+        operator()(const I0 i0, const Field<accessed_field_index> field) const {
+
+      return Storage<StructType, field_index+1>::operator()(i0, field);
+    }
+    template <typename I0>
+    KOKKOS_FORCEINLINE_FUNCTION
+        typename ViewTraits::value_type::template field_reference_type<field_index>
+        operator()(const I0 i0, const Field<field_index> field) const {
+
+      return field_storage(i0);
     }
   };
+
+  
+
+
   template<class StructType, size_t field_index>
   struct Storage<StructType,
                  field_index,
