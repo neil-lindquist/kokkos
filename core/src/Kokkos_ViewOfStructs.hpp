@@ -40,20 +40,22 @@ struct Struct : Struct<RestTypes...> {
   FirstType field_content;
 
   
-  Struct()
+  KOKKOS_INLINE_FUNCTION Struct()
     : field_content(), Struct<RestTypes...>() {
   }
 
-  Struct(FirstType arg, RestTypes... rest)
+  KOKKOS_INLINE_FUNCTION Struct(FirstType arg, RestTypes... rest)
     : field_content(arg), Struct<RestTypes...>(rest...) {
   }
 
   
   template<size_t field_index>
+  KOKKOS_INLINE_FUNCTION
   field_reference_type<field_index> operator()(Field<field_index>) {
     return Struct<RestTypes...>::operator()(Field<field_index-1>());
   }
 
+  KOKKOS_INLINE_FUNCTION
   field_reference_type<0> operator()(Field<0>) {
     return field_content;
   }
@@ -75,15 +77,16 @@ struct Struct<LastType> {
 
   LastType field_content;
 
-  Struct()
+  KOKKOS_INLINE_FUNCTION Struct()
     : field_content() {
   }
 
-  Struct(LastType arg)
+  KOKKOS_INLINE_FUNCTION Struct(LastType arg)
     : field_content(arg) {
   }
 
   template<size_t field_index>
+  KOKKOS_INLINE_FUNCTION
   field_reference_type<field_index> operator()(Field<field_index>) {
     static_assert(field_index == 0, "Invalid field access");
 
@@ -136,14 +139,14 @@ class ViewOfStructsStorage<ViewTraits, LayoutRight> {
 public:
 
   template<class... Args>
-  ViewOfStructsStorage<ViewTraits, LayoutRight>(Args&&... args)
+  inline ViewOfStructsStorage<ViewTraits, LayoutRight>(Args&&... args)
     : storage(args...) {
   }
 
   template <typename I0, size_t field_index>
   KOKKOS_FORCEINLINE_FUNCTION
-      typename ViewTraits::value_type::template field_reference_type<field_index>
-      operator()(const I0& i0, const Field<field_index>& field) const {
+  typename ViewTraits::value_type::template field_reference_type<field_index>
+  operator()(const I0& i0, const Field<field_index>& field) const {
     return storage(i0)(field);
   }
 };
@@ -166,22 +169,22 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
     View<qualified_field_type> field_storage;
 
     template<class... Args>
-    Storage(Args&&... args)
+    inline Storage(Args&&... args)
       : field_storage(args...),
         Storage<StructType, field_index+1>(args...) {
     }
 
     template <typename I0, size_t accessed_field_index>
     KOKKOS_FORCEINLINE_FUNCTION
-        typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
-        operator()(const I0 i0, const Field<accessed_field_index> field) const {
+    typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
+    operator()(const I0 i0, const Field<accessed_field_index> field) const {
 
       return Storage<StructType, field_index+1>::operator()(i0, field);
     }
     template <typename I0>
     KOKKOS_FORCEINLINE_FUNCTION
-        typename ViewTraits::value_type::template field_reference_type<field_index>
-        operator()(const I0 i0, const Field<field_index> field) const {
+    typename ViewTraits::value_type::template field_reference_type<field_index>
+    operator()(const I0 i0, const Field<field_index> field) const {
 
       return field_storage(i0);
     }
@@ -196,14 +199,7 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
                  typename std::enable_if<field_index == StructType::number_fields>::type> {
 
     template<class... Args>
-    Storage(Args&&... args) {
-    }
-
-    template <typename I0, size_t accessed_field_index>
-    KOKKOS_FORCEINLINE_FUNCTION
-        typename ViewTraits::value_type::template field_reference_type<accessed_field_index>
-        operator()(const I0& i0, const Field<accessed_field_index>) const {
-      assert("Invalid field index");
+    inline Storage(Args&&... args) {
     }
   };
 
@@ -212,13 +208,14 @@ class ViewOfStructsStorage<ViewTraits, LayoutLeft> {
 public:
 
   template<class... Args>
-  ViewOfStructsStorage(Args&&... args) : storage(args...) {
+  inline ViewOfStructsStorage(Args&&... args)
+    : storage(args...) {
   }
 
   template <typename I0, size_t field_index>
   KOKKOS_FORCEINLINE_FUNCTION
-      typename ViewTraits::value_type::template field_reference_type<field_index>
-      operator()(const I0& i0, const Field<field_index>& field) const {
+  typename ViewTraits::value_type::template field_reference_type<field_index>
+  operator()(const I0& i0, const Field<field_index>& field) const {
     return storage(i0, field);
   }
 
@@ -239,14 +236,15 @@ class ViewOfStructs {
 public:
 
   template<class... Args>
-  ViewOfStructs(Args&&... args) : storage(args...) {
+  inline ViewOfStructs(Args&&... args)
+    : storage(args...) {
   }
 
   // Rank 1 accessor
   template <typename I0, size_t field_index>
-      // TODO add inline/enable_if code
-      typename struct_type::template field_reference_type<field_index>
-      operator()(const I0& i0, const Field<field_index>& field) const {
+  KOKKOS_FORCEINLINE_FUNCTION
+  typename struct_type::template field_reference_type<field_index>
+  operator()(const I0& i0, const Field<field_index>& field) const {
     return storage(i0, field);
   }
 
